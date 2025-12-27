@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from database import DatabaseManager
 from openrouter_client import OpenRouterClient
+from telegram_client import TelegramClient
 from utils import calculate_new_limit_increment
 
 # Setup logging
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 def run_cycle(client, db):
     logger.info("Starting limit adjustment cycle...")
+    report_lines = [f"📊 *OpenRouter Daily Report* ({datetime.utcnow().strftime('%Y-%m-%d')})\n"]
     try:
         keys = client.list_keys()
         logger.info(f"Found {len(keys)} keys to process.")
@@ -47,7 +49,6 @@ def run_cycle(client, db):
             usage_history = db.get_last_7_days_usage(key_hash, exclude_today=True)
             
             # 3. Calculate average excluding outliers
-            # Warm start: If we have fewer than 7 days in DB, use usage_weekly/7 if it's higher
             avg_usage, days_count = calculate_new_limit_increment(usage_history)
             
             if days_count < 7:
@@ -55,7 +56,6 @@ def run_cycle(client, db):
                 if warm_avg > avg_usage:
                     logger.info(f"Key {name}: Warm starting with weekly average (DB has {days_count} days, weekly avg is {warm_avg:.2f})")
                     avg_usage = warm_avg
-                    # We don't update days_count here as it still reflects DB records
             
             # 4. Update limit: Base it on total usage plus 1.3 * average usage plus $1 buffer
             new_limit = round(total_usage + (1.3 * avg_usage) + 1.0, 4)
@@ -63,10 +63,12 @@ def run_cycle(client, db):
             if avg_usage >= 0:
                 logger.info(f"Key {name}: Total usage {total_usage:.2f}, Avg usage {avg_usage:.2f} (from {days_count} days, x1.3) + $1 buffer, New limit {new_limit:.2f}")
                 client.update_key_limit(key_hash, new_limit)
-                logger.info(f"Successfully updated limit for {name}.")
-                
+                report_lines.append(f"🔑 *{name}*\n  • Limit: {current_limit:.2f} ➔ {new_limit:.2f}\n  • Today's Usage: ${usage_daily:.4f}\n  • 7d Avg: ${avg_usage:.4f}")
+            
+        return "\n".join(report_lines)
     except Exception as e:
         logger.error(f"Error during cycle: {str(e)}")
+        return f"❌ Error during cycle: {str(e)}"
 
 def main():
     load_dotenv()
@@ -77,14 +79,33 @@ def main():
         return
         
     db_path = os.getenv("DB_PATH", "/data/usage.db")
+    tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
     
     client = OpenRouterClient(api_key)
     db = DatabaseManager(db_path)
+    tg = TelegramClient(tg_token) if tg_token else None
     
     logger.info("OpenRouter Key Manager started (single run for cron).")
     logger.info(f"DB Path: {db_path}")
     
-    run_cycle(client, db)
+    # 1. Update subscribers from Telegram
+    if tg:
+        new_subs = tg.get_new_subscribers()
+        for chat_id in new_subs:
+            db.add_subscriber(chat_id)
+            logger.info(f"New Telegram subscriber added: {chat_id}")
+            tg.send_message(chat_id, "✅ You have successfully subscribed to OpenRouter Daily Reports.")
+    
+    # 2. Run the main cycle
+    report = run_cycle(client, db)
+    
+    # 3. Send report to all subscribers
+    if tg and report:
+        subs = db.get_subscribers()
+        for chat_id in subs:
+            tg.send_message(chat_id, report)
+            logger.info(f"Report sent to subscriber: {chat_id}")
+    
     logger.info("Cycle completed successfully.")
 
 if __name__ == "__main__":

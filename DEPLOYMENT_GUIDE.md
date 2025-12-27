@@ -28,9 +28,16 @@ Go to the **"Variables"** tab of your service and add the following:
 | Variable | Value | Description |
 | :--- | :--- | :--- |
 | `PROVISIONING_API_KEY` | `sk-or-v1-...` | Your OpenRouter Provisioning key. |
+| `TELEGRAM_BOT_TOKEN` | `8326860663:AAG...` | Your Telegram Bot token. |
 | `DB_PATH` | `/data/usage.db` | Path to the database on the mounted volume. |
 
-### 4. Verify Cron Configuration
+### 4. Subscribe to Reports
+To receive the daily reports via Telegram:
+1. Search for your bot in Telegram.
+2. Send the message `/start` to it.
+3. The bot will automatically add you to the subscriber list during its next scheduled run.
+
+### 5. Verify Cron Configuration
 The project is pre-configured via `railway.json` to run every day at 11:55 PM UTC (just before the midnight reset):
 - **Schedule**: `55 23 * * *`
 - **Restart Policy**: `NEVER` (This ensures it runs once and stops).

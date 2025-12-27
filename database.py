@@ -20,7 +20,22 @@ class DatabaseManager:
                     PRIMARY KEY (key_hash, date)
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS subscribers (
+                    chat_id INTEGER PRIMARY KEY
+                )
+            """)
             conn.commit()
+
+    def add_subscriber(self, chat_id):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("INSERT OR IGNORE INTO subscribers (chat_id) VALUES (?)", (chat_id,))
+            conn.commit()
+
+    def get_subscribers(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT chat_id FROM subscribers")
+            return [row[0] for row in cursor.fetchall()]
 
     def log_usage(self, key_hash, usage):
         date_str = datetime.utcnow().strftime('%Y-%m-%d')
