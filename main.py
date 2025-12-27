@@ -102,9 +102,14 @@ def main():
     # 3. Send report to all subscribers
     if tg and report:
         subs = db.get_subscribers()
+        logger.info(f"Found {len(subs)} subscribers in database.")
         for chat_id in subs:
+            logger.info(f"Sending report to chat_id: {chat_id}")
             tg.send_message(chat_id, report)
-            logger.info(f"Report sent to subscriber: {chat_id}")
+    elif not report:
+        logger.warning("No report generated to send.")
+    elif not tg:
+        logger.warning("Telegram client not initialized (check TELEGRAM_BOT_TOKEN).")
     
     logger.info("Cycle completed successfully.")
 
