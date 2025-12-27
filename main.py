@@ -36,6 +36,7 @@ def run_cycle(client, db):
                 continue
                 
             usage_daily = key.get("usage_daily", 0)
+            usage_weekly = key.get("usage_weekly", 0)
             
             logger.info(f"Processing key: {name} ({key_hash[:8]}...)")
             
@@ -45,12 +46,16 @@ def run_cycle(client, db):
             # 2. Get last 7 days of usage
             usage_history = db.get_last_7_days_usage(key_hash)
             
-            if not usage_history:
-                logger.warning(f"No usage history for key {name}, skipping limit update.")
-                continue
-                
             # 3. Calculate average excluding outliers
+            # Warm start: If we have fewer than 7 days in DB, use usage_weekly/7 if it's higher
             avg_usage, days_count = calculate_new_limit_increment(usage_history)
+            
+            if days_count < 7:
+                warm_avg = usage_weekly / 7.0
+                if warm_avg > avg_usage:
+                    logger.info(f"Key {name}: Warm starting with weekly average (DB has {days_count} days, weekly avg is {warm_avg:.2f})")
+                    avg_usage = warm_avg
+                    # We don't update days_count here as it still reflects DB records
             
             # 4. Update limit: Base it on total usage plus 1.3 * average usage
             new_limit = round(total_usage + (1.3 * avg_usage), 4)
