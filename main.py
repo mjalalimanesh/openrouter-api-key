@@ -28,6 +28,7 @@ def run_cycle(client, db):
                 
             name = key.get("name", "Unnamed")
             current_limit = key.get("limit")
+            total_usage = key.get("usage", 0)
             
             # Skip if key is unlimited (None)
             if current_limit is None:
@@ -51,11 +52,11 @@ def run_cycle(client, db):
             # 3. Calculate average excluding outliers
             avg_usage = calculate_new_limit_increment(usage_history)
             
-            # 4. Update limit
-            new_limit = round(current_limit + avg_usage, 4)
+            # 4. Update limit: Base it on total usage plus 1.3 * average usage
+            new_limit = round(total_usage + (1.3 * avg_usage), 4)
             
             if avg_usage > 0:
-                logger.info(f"Key {name}: Current limit {current_limit}, Avg usage {avg_usage:.2f}, New limit {new_limit:.2f}")
+                logger.info(f"Key {name}: Total usage {total_usage:.2f}, Avg usage {avg_usage:.2f} (x1.3), New limit {new_limit:.2f}")
                 client.update_key_limit(key_hash, new_limit)
                 logger.info(f"Successfully updated limit for {name}.")
             else:
