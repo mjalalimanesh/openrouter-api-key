@@ -43,8 +43,8 @@ def run_cycle(client, db):
             # 1. Log today's usage to DB
             db.log_usage(key_hash, usage_daily)
             
-            # 2. Get last 7 days of usage
-            usage_history = db.get_last_7_days_usage(key_hash)
+            # 2. Get last 7 days of usage (excluding today)
+            usage_history = db.get_last_7_days_usage(key_hash, exclude_today=True)
             
             # 3. Calculate average excluding outliers
             # Warm start: If we have fewer than 7 days in DB, use usage_weekly/7 if it's higher

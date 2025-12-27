@@ -31,13 +31,21 @@ class DatabaseManager:
             """, (key_hash, date_str, usage))
             conn.commit()
 
-    def get_last_7_days_usage(self, key_hash):
+    def get_last_7_days_usage(self, key_hash, exclude_today=True):
+        date_str = datetime.utcnow().strftime('%Y-%m-%d')
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("""
+            query = """
                 SELECT usage FROM usage_history
                 WHERE key_hash = ?
-                ORDER BY date DESC
-                LIMIT 7
-            """, (key_hash,))
+            """
+            params = [key_hash]
+            
+            if exclude_today:
+                query += " AND date < ?"
+                params.append(date_str)
+                
+            query += " ORDER BY date DESC LIMIT 7"
+            
+            cursor = conn.execute(query, params)
             return [row[0] for row in cursor.fetchall()]
 
