@@ -50,17 +50,17 @@ def run_cycle(client, db):
                 continue
                 
             # 3. Calculate average excluding outliers
-            avg_usage = calculate_new_limit_increment(usage_history)
+            avg_usage, days_count = calculate_new_limit_increment(usage_history)
             
             # 4. Update limit: Base it on total usage plus 1.3 * average usage
             new_limit = round(total_usage + (1.3 * avg_usage), 4)
             
             if avg_usage > 0:
-                logger.info(f"Key {name}: Total usage {total_usage:.2f}, Avg usage {avg_usage:.2f} (x1.3), New limit {new_limit:.2f}")
+                logger.info(f"Key {name}: Total usage {total_usage:.2f}, Avg usage {avg_usage:.2f} (from {days_count} days, x1.3), New limit {new_limit:.2f}")
                 client.update_key_limit(key_hash, new_limit)
                 logger.info(f"Successfully updated limit for {name}.")
             else:
-                logger.info(f"Key {name}: Average usage is 0 or negative, no limit increase needed.")
+                logger.info(f"Key {name}: Average usage is 0 or negative ({days_count} days checked), no limit increase needed.")
                 
     except Exception as e:
         logger.error(f"Error during cycle: {str(e)}")
